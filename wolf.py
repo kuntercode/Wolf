@@ -3,26 +3,13 @@ import shelve
 import socket
 import re
 
+from pathlib import Path
+
+
 db_name = "wolf_db"
 
-def send_wol(mac_address: str, broadcast_ip: str = "255.255.255.255", port: int = 9):
-    
-    if re.match("[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$", mac_address.lower()):
-        cleaned_mac = mac_address.replace(":", "").replace("-", "")
-
-        mac_bytes = bytes.fromhex(cleaned_mac)
-
-        magic_packet = b"\xff" * 6 + mac_bytes * 16
-
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-            sock.sendto(magic_packet, (broadcast_ip, port))
-            print(f"Magic packet sent")
-
-    else:
-        print("Invalid MAC Address")
-
+SCRIPT_DIR = Path(__file__).resolve().parent
+DB_PATH = str(SCRIPT_DIR / db_name)
 
 
 def wake_host(args):
@@ -40,7 +27,7 @@ def wake_host(args):
             print(f"Magic packet sent.")
 
     else:
-        with shelve.open(db_name, "c") as db:
+        with shelve.open(DB_PATH, "c") as db:
             if args.ref in db:
                 mac_address, broadcast, port = db[args.ref]
                 print(f"{args.ref} - MAC Address: {mac_address}, Broadcast: {broadcast}, Port: {port}")
@@ -64,7 +51,7 @@ def wake_host(args):
 
 def add_alias(args):
     if re.match("[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$", args.mac_address.lower()):
-        with shelve.open(db_name, "c") as db:
+        with shelve.open(DB_PATH, "c") as db:
             if args.name in db:
                 print(f"Alias '{args.name}' already exists, overriding.")
             else:
@@ -79,7 +66,7 @@ def add_alias(args):
 
 def list_aliases(args):
     if args.name:
-        with shelve.open(db_name, "c") as db:
+        with shelve.open(DB_PATH, "c") as db:
             if args.name in db:
                 mac_address, broadcast, port = db[args.name]
                 print(f"{args.name} - MAC Address: {mac_address}, Broadcast: {broadcast}, Port: {port}")
@@ -88,7 +75,7 @@ def list_aliases(args):
                 print(f"Alias not found.")
 
     else:
-        with shelve.open(db_name, "c") as db:
+        with shelve.open(DB_PATH, "c") as db:
             for key, value in db.items():
                 mac_address, broadcast, port = value
                 print(f"{key} - MAC Address: {mac_address}, Broadcast: {broadcast}, Port: {port}")
@@ -98,7 +85,7 @@ def list_aliases(args):
 
 def remove_aliases(args):
     if args.name == "*":
-        with shelve.open(db_name, "c") as db:
+        with shelve.open(DB_PATH, "c") as db:
             if not db:
                 print("No saved aliases.")
 
@@ -107,7 +94,7 @@ def remove_aliases(args):
                 print("Removed all aliases.")
 
     elif args.name:
-        with shelve.open(db_name, "c") as db:
+        with shelve.open(DB_PATH, "c") as db:
             if args.name in db:
                 del db[args.name]
                 print(f"Removed alias '{args.name}'.")
@@ -150,16 +137,6 @@ def main():
     args = parser.parse_args()
     args.func(args)
 
-
-
-    #parser.add_argument("mac_address", help="Target MAC address")
-
-    #parser.add_argument("--broadcast", default="255.255.255.255", help="Broadcast IP address")
-    #parser.add_argument("--port", type=int, default=9)
-
-    #args = parser.parse_args()
-
-    #send_wol(args.mac_address, args.broadcast, args.port)
 
 
 if __name__ == "__main__":
